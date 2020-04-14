@@ -36,6 +36,8 @@ class COCODataset(data.Dataset):
         # TODO
         # 添加中心点周围8个点坐标及其对应边界点
         # 考虑中心点在边界的情况
+        # 输入与输出的坐标变换公式为 p_in = 8p_out + 31
+        # 具体分为两个阶段 第一阶段 p_in = 8p_backbone + 7 第二阶段 p_backbone = p_out + 3
         ##################################################
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
