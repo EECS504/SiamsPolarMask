@@ -154,7 +154,7 @@ def resnet50(**kwargs):
     return model
 
 
-use_layers = {'used_layers': [2, 3, 4]}
-model = resnet50(**use_layers).to('cuda')
-print(model)
-summary(model, (3, 255, 255))
+# use_layers = {'used_layers': [2, 3, 4]}
+# model = resnet50(**use_layers).to('cuda')
+# print(model)
+# summary(model, (3, 255, 255))
