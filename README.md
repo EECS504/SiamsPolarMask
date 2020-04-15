@@ -1,4 +1,4 @@
-## SiamPolarMask
+# SiamPolarMask
 This is an implementation of Siam Polar Mask, which is a mixed model of Siam Car and Polar Mask, for more details, please visit: </br >
 1. [Polar Mask (CVPR 2020)](https://arxiv.org/abs/1608.03983), [Source Code](https://github.com/xieenze/PolarMask)</br >
 2. [Siam Car (CVPR 2020, Oral)](https://arxiv.org/abs/1911.07241), [Source Code](https://github.com/ohhhyeahhh/SiamCAR)</br >
