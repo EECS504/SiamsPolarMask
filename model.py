@@ -4,11 +4,22 @@ from ResNet import resnet50
 from adjust_layer import AdjustAllLayer
 from corr import xcorr_depthwise
 from Head import CARHead
+
 class Mymodel(nn.Module):
     def __init__(self):
         super(Mymodel, self).__init__()
         use_layers = {'used_layers': [2, 3, 4]}
         self.backbone = resnet50(**use_layers)
+
+        pretrained_resnet50 = torch.load('pretrained_resnet50.pt')
+        assert len(self.backbone.state_dict()) == len(pretrained_resnet50)
+        pretrained_Weights = []
+        for key in pretrained_resnet50:
+            pretrained_Weights.append(pretrained_resnet50[key])
+        for i, key in enumerate(self.backbone.state_dict()):
+            self.backbone.state_dict()[key] = pretrained_Weights[i]
+        for param in self.backbone.parameters():
+            param.requires_grad = False
         # Adjust all layers to 256
         self.adj = AdjustAllLayer([512, 1024, 2048], [256, 256, 256])
         self.head = CARHead(in_channels= 256)
