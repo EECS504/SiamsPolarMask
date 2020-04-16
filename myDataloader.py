@@ -121,10 +121,13 @@ class COCODataset(data.Dataset):
 
         return distances, new_coordinate
 
-annFile = '../../504Proj/annotations/instances_val2017.json'
-imgDir = '../../504Proj/val2017/'
+annFile = './Data/instances_val2017.json'
+imgDir = './Data/val2017/'
 train_data = COCODataset(annFilePath=annFile, imgDir=imgDir)
 train_loader = data.DataLoader(dataset=train_data, batch_size=5, shuffle=False)
 
-for i in train_loader:
-    print(i)
+for i, Data in enumerate(train_loader):
+    if i > 0:
+        break
+    print(Data['id'])
+

@@ -3,17 +3,55 @@ import torch
 import torch.nn as nn
 
 
-def my_softmax(cls):
+def my_log_softmax(cls):
     b, a2, h, w = cls.size()
     # N, 2, 25, 25
     cls = cls.view(b, 2, a2 // 2, h, w)
     # N, 2, 1, 25, 25
     cls = cls.permute(0, 2, 3, 4, 1).contiguous()
     # N, 1, 25, 25, 2
-    cls = cls.squeeze(1)
-    # N, 25, 25, 2
-    cls = F.softmax(cls, dim=-1) # The last dim, shrink the scores to range (0,1)
+    cls = F.log_softmax(cls, dim=4) # The last dim, shrink the scores to range (0,1)
     return cls
+class MaskIOULoss(nn.Module):
+    def __init__(self):
+        super(MaskIOULoss, self).__init__()
+
+    def forward(self, pred, target, weight, avg_factor=None):
+        '''
+         :param pred:  shape (N,36), N is nr_box
+         :param target: shape (N,36)
+         :return: loss
+         '''
+
+        total = torch.stack([pred,target], -1)
+        l_max = total.max(dim=2)[0]
+        l_min = total.min(dim=2)[0]
+
+        loss = (l_max.sum(dim=1) / l_min.sum(dim=1)).log()
+        loss = loss * weight
+        loss = loss.sum() / avg_factor
+        return loss
+
+class MaskIOULoss_v2(nn.Module):
+    def __init__(self):
+        super(MaskIOULoss_v2, self).__init__()
+
+    def forward(self, pred, target, weight, avg_factor=None):
+        '''
+         :param pred:  shape (N,36), N is nr_box
+         :param target: shape (N,36)
+         :return: loss
+         '''
+
+        total = torch.stack([pred,target], -1)
+        l_max = total.max(dim=2)[0]
+        l_min = total.min(dim=2)[0].clamp(min=1e-6)
+
+        # loss = (l_max.sum(dim=1) / l_min.sum(dim=1)).log()
+        loss = (l_max / l_min).log().mean(dim=1)
+        loss = loss * weight
+        loss = loss.sum() / avg_factor
+        return loss
 
 class MaskIOULoss_v3(nn.Module):
     def __init__(self):
@@ -64,7 +102,7 @@ class My_loss(object):
             mask_reg (N*36*25*25)
             centerness (N*1*25*25)
             GT_labels (N*(25*25)*1) binary, 0 or 1, used in classification
-            GT_masks (N*(25*25)*36)
+            GT_masks (N*(25*25)*36) Distance
         Returns:
             cls_loss (Tensor)
             reg_loss (Tensor)
@@ -76,7 +114,7 @@ class My_loss(object):
         # mask_reg_flatten (N*25*25)*36
         GT_labels_flatten = (GT_labels.view(-1))
         # GT_labels_flatten (N*25*25)
-        cls = my_softmax(cls)
+        cls = my_log_softmax(cls)
         # cls N*25*25*2
         cls_flatten = (cls.view(-1, num_cls))
         # cls_flatten (N*25*25)*2
