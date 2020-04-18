@@ -8,22 +8,23 @@ Original file is located at
 """
 
 import torch
+from torchvision import transforms
 import torch.utils.data as data
 from pycocotools.coco import COCO
 import numpy as np
 import cv2
 from PIL import Image, ImageOps, ImageStat, ImageDraw
-import os
+import matplotlib.pyplot as plt
 import os.path as osp
 
 
 class COCODataset(data.Dataset):
-    def __init__(self, annFilePath, imgDir, catId=1, transform=None):
+    def __init__(self, annFilePath, imgDir, catId=1, transforms=None):
         super(COCODataset, self).__init__()
         self.annFilePath = annFilePath
         self.imgDir = imgDir
         self.catId = catId
-        self.transform = transform
+        self.transforms = transforms
         # annFile = '../../504Proj/annotations/instances_val2017.json'
         self.coco = COCO(annFilePath)
         self.imgIds = self.coco.getImgIds(catIds=self.catId)
@@ -38,7 +39,7 @@ class COCODataset(data.Dataset):
         max_area_ann = max(anns, key=lambda x: x['area'])    # ann ID
         bbox = max_area_ann['bbox']
 
-        meta['template'], meta['detection'], meta['cords_of_bbox_in_detection'], max_area_ann['segmentation'] = self.transform_cords(img, bbox, max_area_ann['segmentation'])
+        template, detection, bbox_of_detection, max_area_ann['segmentation'] = self.transform_cords(img, bbox, max_area_ann['segmentation'])
 
         t = self.coco.imgs[max_area_ann['image_id']]
         t['height'], t['width'] = 255, 255
@@ -61,13 +62,6 @@ class COCODataset(data.Dataset):
         gt_class = self.gen_gt_class(25, valid_centers)
 
         valid_centers_in_ori = self.coord_transform(valid_centers, 'f2o')
-        ##################################################
-        # TODO
-        # 添加中心点周围8个点坐标及其对应边界点
-        # 考虑中心点在边界的情况
-        # 输入与输出的坐标变换公式为 p_in = 8p_out + 31
-        # 具体分为两个阶段 第一阶段 p_in = 8p_backbone + 7 第二阶段 p_backbone = p_out + 3
-        ##################################################
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         contours = np.concatenate(contours)          # size: n * 1 * 2
@@ -80,33 +74,27 @@ class COCODataset(data.Dataset):
           distances.append(dst.reshape((1,-1)))
           new_coordinates.append(new_coord)
 
-        #distances = torch.Tensor(distances)
-        #new_coordinates = torch.Tensor(new_coordinates)
-
         distances = torch.cat(distances[:], 0)
-
         distance, new_coord = self.get_36_coordinates(c_x, c_y, contours)
-        ####################################################
-        # TODO
-        # Transform image
 
-        # meta['image'] = self.transform(img)
-        #if img is not None:
-        #  meta['template'], meta['detection'], meta['bbox'], meta['center'], meta['distance'] = self.transform_inf(img, bbox, center, distance)
-        #self.transform(img, bbox, center, distance)
-        ####################################################
-        meta['id'] = max_area_ann['id']
-        meta['imgId'] = max_area_ann['image_id']
-        #meta['bbox'] = bbox
-        meta['center'] = center
-        meta['distance'] = distance
-        meta['coords'] = new_coord
+        if self.transforms is not None:
+            template = self.transforms(template)
+            detection = self.transforms(detection)
+
+        # meta['id'] = max_area_ann['id']
+        # meta['imgId'] = max_area_ann['image_id']
+        meta['template'] = template                     # 模板 3 * 127 * 127
+        meta['detection'] = detection                   # 检测 3 * 256 * 256
+        meta['bbox_of_detection'] = bbox_of_detection   # 检测帧坐标系下的bbox,
+        meta['center'] = center                         # 检测帧坐标系下中心坐标
+        meta['distance'] = distance                     # 检测帧坐标系下距离
+        meta['coords'] = new_coord                      # 字典， 键为角度，键值为距离
         meta['targets'] = {
-            'distances': distances,
-            'gt_class': gt_class,
+            'distances': distances,                     # k * 36
+            'gt_class': gt_class,                       # 25 * 25
         }
-        meta['valid_centers'] = valid_centers
-        #meta['mask'] = torch.Tensor(mask).resize((255, 255))
+        # meta['valid_centers'] = valid_centers
+        # meta['mask'] = torch.Tensor(mask).resize((255, 255))
 
         return meta
 
@@ -290,15 +278,55 @@ class COCODataset(data.Dataset):
       return (template_img_resized, detection_img_resized, cords_of_bbox_in_resized_detection, segmentation_in_detection)
 
 
+if __name__ == '__main__':
+    annFile = '../annotations/instances_val2017.json'
+    imgDir = '../val2017'
+    mean = [0.471, 0.448, 0.408]
+    std = [0.234, 0.239, 0.242]
+    img_transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ])
+
+    train_data = COCODataset(annFilePath=annFile, imgDir=imgDir, transforms = img_transforms)
+    train_loader = data.DataLoader(dataset=train_data, batch_size=1, shuffle=False)
+
+    def get_contours_from_polar(cx, cy, polar_coords):
+        new_coords = []
+        for angle, dst in polar_coords.items():
+            x = cx + dst * np.sin(angle * np.pi / 180)
+            y = cy + dst * np.cos(angle * np.pi / 180)
+            new_coords.append([x, y])
+        return new_coords
 
 
-
-annFile = '../instances_val2017.json'
-imgDir = '../val2017'
-train_data = COCODataset(annFilePath=annFile, imgDir=imgDir)
-train_loader = data.DataLoader(dataset=train_data, batch_size=5, shuffle=False)
-
-for i, Data in enumerate(train_loader):
-    if i > 0:
+    for i, Data in enumerate(train_loader):
+        temp = (Data)
         break
-    print(Data['id'])
+
+    template = temp['template'][0]
+    detection = temp['detection'][0]
+    center = temp['center'][0]
+    distance = temp['distance'][0]
+    coords = temp['coords']
+
+    #######################################
+    # 中心以及distance可视化
+
+    new_coords = get_contours_from_polar(center[0], center[1], coords)
+
+    trans = transforms.ToPILImage(mode='RGB')
+    template = trans(template.squeeze())
+    detection = trans(detection.squeeze())
+
+
+    plt.figure(0)
+    plt.subplot(1,2,1)
+    plt.imshow(template)
+
+    plt.subplot(1,2,2)
+    for i in range(len(new_coords)):
+        plt.plot([int(center[1]), int(new_coords[i][1])], [int(center[0]), int(new_coords[i][0])], color='red')
+    plt.imshow(detection)
+    plt.show()
+    ######################################################
