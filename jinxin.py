@@ -67,14 +67,14 @@ class COCODataset(data.Dataset):
         contours = np.concatenate(contours)          # size: n * 1 * 2
         contours = contours.reshape(-1, 2)           # 此处为opencv的x, y坐标，后处理需要交换
 
-        distances = []
+        distances = torch.ones(25, 25, 36) * 1e-6
         new_coordinates = []
-        for c in valid_centers_in_ori:
+        for i, c in enumerate(valid_centers_in_ori):
           dst, new_coord = self.get_36_coordinates(c[0], c[1], contours)  # distance is a list, new_coord is a dictionary which keys are angles(0 ~ 360, 10)
-          distances.append(dst.reshape((1,-1)))
+          distances[int(valid_centers[i][0]), int(valid_centers[i][1]), :] = dst
           new_coordinates.append(new_coord)
 
-        distances = torch.cat(distances[:], 0)
+        # distances = torch.cat(distances[:], 0)
         distance, new_coord = self.get_36_coordinates(c_x, c_y, contours)
 
         if self.transforms is not None:
@@ -90,7 +90,7 @@ class COCODataset(data.Dataset):
         meta['distance'] = distance                     # 检测帧坐标系下距离
         meta['coords'] = new_coord                      # 字典， 键为角度，键值为距离
         meta['targets'] = {
-            'distances': distances,                     # k * 36
+            'distances': distances,                     # 25 * 25 * 36
             'gt_class': gt_class,                       # 25 * 25
         }
         # meta['valid_centers'] = valid_centers
