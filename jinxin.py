@@ -84,7 +84,6 @@ class COCODataset(data.Dataset):
         #new_coordinates = torch.Tensor(new_coordinates)
 
         distances = torch.cat(distances[:], 0)
-        print(distances.shape)
 
         distance, new_coord = self.get_36_coordinates(c_x, c_y, contours)
         ####################################################
@@ -172,7 +171,7 @@ class COCODataset(data.Dataset):
         valid_centers = []
         for i in range(-1, 2):
           for j in range(-1, 2):
-            print(c_x + i, c_y + j)
+            #print(c_x + i, c_y + j)
             if c_x + i in range(0, fm_size) and c_y + j in range(0, fm_size):
               valid_centers.append(np.array((c_x + i, c_y + j)))
         return valid_centers
