@@ -15,4 +15,10 @@ Instead of using pixel level mask (like mask-rcnn), we represent the mask by one
 
 ![](images/polar_rep.png)
 
-## Training Dataset
+## How to run
+### If using shell: </br >
+To run the shell file: `/bin/bash run_my_code.sh`</br >
+You can edit the shell by:
+`python3 train.py --batch [the batch size] --lr [learning rate] --epochs [# of epochs] --continue_train [continue training]`
+### If using IDE: </br >
+Click on "run" !
