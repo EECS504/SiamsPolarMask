@@ -24,6 +24,8 @@ class Mymodel(nn.Module):
         # Adjust all layers to 256
         self.adj = AdjustAllLayer([512, 1024, 2048], [256, 256, 256])
         self.head = CARHead(in_channels= 256)
+        self.Down = nn.ConvTranspose2d(256 * 3, 256, 1, 1)
+        # In the code, the author use 1*1 transpose convolution...
     def forward(self, template, search):
         template = self.adj.forward(self.backbone.forward(template))
         search = self.adj.forward(self.backbone.forward(search))
@@ -31,9 +33,8 @@ class Mymodel(nn.Module):
         for i in range(len(template) - 1):
             feature_new = xcorr_depthwise(search[i + 1], template[i + 1])
             features = torch.cat([features, feature_new], 1)
-        Down = nn.ConvTranspose2d(256 * 3, 256, 1, 1)
-        # In the code, the author use 1*1 transpose convolution...
-        features = Down(features)
+
+        features = self.Down(features)
         logits, mask_reg, centerness = self.head.forward(features)
 
         return logits, mask_reg, centerness

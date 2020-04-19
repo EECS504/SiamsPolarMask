@@ -61,7 +61,7 @@ class train_model():
                 print("There are", torch.cuda.device_count(), "GPUs!")
                 print("But Let's use the first two GPUs!")
                 self.model = nn.DataParallel(self.model, device_ids=[0, 1])
-        self.model.to(self.device)
+        self.model = self.model.to(self.device)
         self.trainer = model_trainer(model=self.model,
                                      learning_rate=learning_rate,
                                      num_epochs=num_epochs,
