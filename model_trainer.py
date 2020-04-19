@@ -38,6 +38,14 @@ class model_trainer:
             acc_cen_loss = 0
             for iter_num, batch in enumerate(train_loader):
                 self.optimizer.zero_grad()
+                for key in batch:
+                    assert isinstance(batch[key], type(batch['template'])) or isinstance(batch[key], type(batch['targets']))
+                    if torch.is_tensor(batch[key]):
+                        batch[key] = batch[key].to(self.device)
+                    else:
+                        for sub_key in batch[key]:
+                            batch[key][sub_key] = batch[key][sub_key].to(self.device)
+
                 batch_template = batch['template']
                 batch_detection = batch['detection']
                 GT_cls = batch['targets']['gt_class']
@@ -102,10 +110,18 @@ class model_trainer:
             acc_reg_loss = 0
             acc_cen_loss = 0
             for iter_num, batch in enumerate(valid_loader):
+                for key in batch:
+                    assert isinstance(batch[key], type(batch['template'])) or isinstance(batch[key], type(batch['targets']))
+                    if torch.is_tensor(batch[key]):
+                        batch[key] = batch[key].to(self.device)
+                    else:
+                        for sub_key in batch[key]:
+                            batch[key][sub_key] = batch[key][sub_key].to(self.device)
                 batch_template = batch['template']
                 batch_detection = batch['detection']
                 GT_cls = batch['targets']['gt_class']
                 GT_mask = batch['targets']['distances']
+
                 cls, mask_reg, centerness = self.model.forward(batch_template, batch_detection)
                 cls_loss, reg_loss, centerness_loss = self.criterion.forward(cls, mask_reg, centerness, GT_cls, GT_mask)
                 loss = cls_loss + 1.5 * reg_loss + centerness_loss
