@@ -33,6 +33,13 @@ class COCODataset(data.Dataset):
         template, detection, bbox_of_detection, max_area_ann['segmentation'] = self.transform_cords(img, bbox,
                                                                                                     max_area_ann[
                                                                                                         'segmentation'])
+        template = np.array(template)
+        detection = np.array(detection)
+        if len(template.shape) == 2:
+            template = np.expand_dims(template, axis=2)
+            template = np.concatenate((template, template, template), axis=-1)
+            detection = np.expand_dims(detection, axis=2)
+            detection = np.concatenate((detection, detection, detection), axis=-1)
 
         t = self.coco.imgs[max_area_ann['image_id']]
         t['height'], t['width'] = 255, 255
@@ -57,6 +64,8 @@ class COCODataset(data.Dataset):
         valid_centers_in_ori = self.coord_transform(valid_centers, 'f2o')
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        if contours is None:
+            print(mask)
         contours = np.concatenate(contours)  # size: n * 1 * 2
         contours = contours.reshape(-1, 2)  # 此处为opencv的x, y坐标，后处理需要交换
 

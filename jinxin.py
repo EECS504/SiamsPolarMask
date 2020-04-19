@@ -41,8 +41,19 @@ class COCODataset(data.Dataset):
 
         template, detection, bbox_of_detection, max_area_ann['segmentation'] = self.transform_cords(img, bbox, max_area_ann['segmentation'])
 
+        template = np.array(template)
+        detection = np.array(detection)
+        if len(template.shape) == 2:
+            template = np.expand_dims(template, axis=2)
+            template = np.concatenate((template, template, template), axis=-1)
+            detection = np.expand_dims(detection, axis=2)
+            detection = np.concatenate((detection, detection, detection), axis=-1)
+
+
+
         t = self.coco.imgs[max_area_ann['image_id']]
         t['height'], t['width'] = 255, 255
+        print(max_area_ann)
         mask = self.coco.annToMask(max_area_ann)
 
         c_x = np.mean(mask.nonzero()[0])            # numpy 下的x, y坐标 与opencv相反
@@ -287,9 +298,22 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
     ])
-
+    # coco =  COCO(annFile)
+    max_area_ann ={'segmentation': [[39.485, 256.28, 15.317199602127076, 256.28, 1.1323999857902527, 256.28, 0.35759999200701714, 256.28, 19.921299829483033, 256.28, 32.586301250457765, 256.28, 39.09759965896606, 256.28, 44.863900909423826, 256.28, 45.23640090942383, 256.28, 45.23640090942383, 256.28, 44.476500568389895, 256.28, 42.55439920425415, 256.28, 41.79449886322021, 256.28], [0.0, 306.96, 5.65, 311.33, 7.71, 321.63, 8.22, 330.38, 8.99, 337.08, 7.96, 339.14, 6.16, 341.2, 0.24, 342.74]], 'area': 516.8099500000006, 'iscrowd': 0, 'image_id': 42070, 'bbox': [0.0, 306.96, 30.36, 56.89], 'category_id': 1, 'id': 1728146}
+    #
+    # t = coco.imgs[max_area_ann['image_id']]
+    # t['height'], t['width'] = 255, 255
+    # mask = coco.annToMask(max_area_ann)
+    # print(mask.shape)
+    # c_x = np.mean(mask.nonzero()[0])  # numpy 下的x, y坐标 与opencv相反
+    # c_y = np.mean(mask.nonzero()[1])
+    # print(c_x,c_y)
+    # contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    # contours = np.concatenate(contours)  # size: n * 1 * 2
+    # contours = contours.reshape(-1, 2)
+    # exit()
     train_data = COCODataset(annFilePath=annFile, imgDir=imgDir, transforms = img_transforms)
-    train_loader = data.DataLoader(dataset=train_data, batch_size=1, shuffle=False)
+    train_loader = data.DataLoader(dataset=train_data, batch_size=5, shuffle=False)
 
     def get_contours_from_polar(cx, cy, polar_coords):
         new_coords = []
@@ -302,7 +326,7 @@ if __name__ == '__main__':
 
     for i, Data in enumerate(train_loader):
         temp = (Data)
-        break
+
 
     template = temp['template'][0]
     detection = temp['detection'][0]
@@ -312,21 +336,21 @@ if __name__ == '__main__':
 
     #######################################
     # 中心以及distance可视化
-
-    new_coords = get_contours_from_polar(center[0], center[1], coords)
-
-    trans = transforms.ToPILImage(mode='RGB')
-    template = trans(template.squeeze())
-    detection = trans(detection.squeeze())
-
-
-    plt.figure(0)
-    plt.subplot(1,2,1)
-    plt.imshow(template)
-
-    plt.subplot(1,2,2)
-    for i in range(len(new_coords)):
-        plt.plot([int(center[1]), int(new_coords[i][1])], [int(center[0]), int(new_coords[i][0])], color='red')
-    plt.imshow(detection)
-    plt.show()
+    #
+    # new_coords = get_contours_from_polar(center[0], center[1], coords)
+    #
+    # trans = transforms.ToPILImage(mode='RGB')
+    # template = trans(template.squeeze())
+    # detection = trans(detection.squeeze())
+    #
+    #
+    # plt.figure(0)
+    # plt.subplot(1,2,1)
+    # plt.imshow(template)
+    #
+    # plt.subplot(1,2,2)
+    # for i in range(len(new_coords)):
+    #     plt.plot([int(center[1]), int(new_coords[i][1])], [int(center[0]), int(new_coords[i][0])], color='red')
+    # plt.imshow(detection)
+    # plt.show()
     ######################################################

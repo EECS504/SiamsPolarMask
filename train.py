@@ -6,8 +6,10 @@ from model import Mymodel
 from model_trainer import model_trainer
 from torch.utils.data import DataLoader, random_split
 from load_data import load_data
-annfile = './Data/instances_val2017.json'
-imgDir = './Data/val2017'
+#annfile = './Data/instances_val2017.json'
+#imgDir = './Data/val2017'
+annfile = '../annotations/instances_val2017.json'
+imgDir = '../val2017'
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch', type=int, help='the train batch size', default=1)
 parser.add_argument('--lr', type=float, help='the learning rate', default=2e-3)
@@ -52,8 +54,9 @@ class train_model():
                 print('load pre-trained model successful, continue training!')
             except:
                 raise IOError(f"Checkpoint '{checkpoint_path}' load failed! ")
-
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(torch.cuda.is_available())
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if torch.cuda.is_available():
             gpu_count = torch.cuda.device_count()
@@ -61,11 +64,13 @@ class train_model():
                 print("There are", torch.cuda.device_count(), "GPUs!")
                 print("But Let's use the first two GPUs!")
                 self.model = nn.DataParallel(self.model, device_ids=[0, 1])
-        self.model.to(self.device)
+        self.model = self.model.to(self.device)
+        print(self.device)
         self.trainer = model_trainer(model=self.model,
                                      learning_rate=learning_rate,
                                      num_epochs=num_epochs,
-                                     batch_size=batch_size
+                                     batch_size=batch_size,
+                                     device = self.device
                                      )
 
     def train(self):
