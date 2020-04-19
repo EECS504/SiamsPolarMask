@@ -102,7 +102,7 @@ class My_loss(object):
             mask_reg (N*36*25*25)
             centerness (N*1*25*25)
             GT_labels (N*(25*25)*1) binary, 0 or 1, used in classification
-            GT_masks (N*(25*25)*36) Distance
+            GT_masks (N*K*36) Distance, K is the number of "ones" in GT_labels
         Returns:
             cls_loss (Tensor)
             reg_loss (Tensor)
@@ -138,7 +138,7 @@ class My_loss(object):
                 mask_reg_flatten,
                 GT_masks_flatten,
                 weight=1.0,
-                avg_factor=625
+                avg_factor=len(pos_inds)
             )
             centerness_loss = self.centerness_loss_func(
                 centerness_flatten,

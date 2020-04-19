@@ -4,6 +4,7 @@ from ResNet import resnet50
 from adjust_layer import AdjustAllLayer
 from corr import xcorr_depthwise
 from Head import CARHead
+from loss_fun import My_loss
 
 class Mymodel(nn.Module):
     def __init__(self):
@@ -36,9 +37,17 @@ class Mymodel(nn.Module):
         logits, mask_reg, centerness = self.head.forward(features)
 
         return logits, mask_reg, centerness
-
-model = Mymodel()
-template = torch.randn(5,3,127,127)
-search = torch.randn(5,3,255,255)
-cls, mask, centerness = model.forward(template, search)
-print('cls shape: {} mask shape: {} centerness shape: {}'.format(cls.shape, mask.shape, centerness.shape))
+#
+# model = Mymodel()
+# template = torch.randn(5,3,127,127)
+# search = torch.randn(5,3,255,255)
+# GT_cls = torch.zeros(5,25,25, dtype= torch.long)
+# GT_cls[2,:,:] = 1
+# GT_mask = torch.ones(5,25,25,36)
+# cls, mask, centerness = model.forward(template, search)
+#
+#
+# print('cls shape: {} mask shape: {} centerness shape: {}'.format(cls.shape, mask.shape, centerness.shape))
+# criterion = My_loss()
+# cls_loss, reg_loss, centerness_loss = criterion.forward(cls, mask, centerness, GT_cls, GT_mask)
+# print('cls loss: {} mask loss: {} centerness loss: {}'.format(cls_loss.item(), reg_loss.item(), centerness_loss.item()))
