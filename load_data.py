@@ -4,7 +4,7 @@ import torch.utils.data as data
 from pycocotools.coco import COCO
 import numpy as np
 import cv2
-from PIL import Image, ImageOps, ImageStat, ImageDraw
+from PIL import Image, ImageOps, ImageStat,ImageDraw
 import matplotlib.pyplot as plt
 import os.path as osp
 

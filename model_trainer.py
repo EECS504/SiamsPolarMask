@@ -11,8 +11,7 @@ class model_trainer:
                  model,
                  learning_rate = 2e-3,
                  num_epochs = 20,
-                 batch_size = 32,
-                 device="cuda"
+                 batch_size = 32
                  ):
         self.model = model
         self.num_epochs = num_epochs
@@ -20,15 +19,17 @@ class model_trainer:
                                     filter(lambda p: p.requires_grad, self.model.parameters()),
                                     learning_rate)  # leave betas and eps by default
         self.lr_scheduler = ReduceLROnPlateau(self.optimizer, verbose=True)
-        self.device = device
-        print(torch.cuda.is_available())
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.criterion = My_loss()
     def train(self, train_loader, valid_loader):
         image_num = len(train_loader.dataset.indices)
         niter = np.int(np.ceil(image_num / self.batch_size))
-        train_loss_history = {'total_loss': [], 'cls_loss': [], 'reg_loss': [], 'centerness_loss': []}
-        valid_loss_history = {'total_loss': [], 'cls_loss': [], 'reg_loss': [], 'centerness_loss': []}
+
+
+        train_loss_history = {'total_loss':[], 'cls_loss': [], 'reg_loss': [], 'centerness_loss': []}
+        valid_loss_history = {'total_loss':[], 'cls_loss': [], 'reg_loss': [], 'centerness_loss': []}
+
         for i in range(self.num_epochs):
             self.model.train()
             start_t = time.time()
@@ -50,10 +51,12 @@ class model_trainer:
                 batch_detection = batch['detection']
                 GT_cls = batch['targets']['gt_class']
                 GT_mask = batch['targets']['distances']
+
                 batch_template = batch_template.to(self.device)
                 batch_detection = batch_detection.to(self.device)
                 GT_cls = GT_cls.to(self.device)
                 GT_mask = GT_mask.to(self.device)
+
                 cls, mask_reg, centerness = self.model.forward(batch_template, batch_detection)
                 cls_loss, reg_loss, centerness_loss = self.criterion.forward(cls, mask_reg, centerness, GT_cls, GT_mask)
                 loss = cls_loss + 1.5 * reg_loss + centerness_loss

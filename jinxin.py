@@ -8,23 +8,22 @@ Original file is located at
 """
 
 import torch
-from torchvision import transforms
 import torch.utils.data as data
 from pycocotools.coco import COCO
 import numpy as np
 import cv2
 from PIL import Image, ImageOps, ImageStat, ImageDraw
-import matplotlib.pyplot as plt
+import os
 import os.path as osp
 
 
 class COCODataset(data.Dataset):
-    def __init__(self, annFilePath, imgDir, catId=1, transforms=None):
+    def __init__(self, annFilePath, imgDir, catId=1, transform=None):
         super(COCODataset, self).__init__()
         self.annFilePath = annFilePath
         self.imgDir = imgDir
         self.catId = catId
-        self.transforms = transforms
+        self.transform = transform
         # annFile = '../../504Proj/annotations/instances_val2017.json'
         self.coco = COCO(annFilePath)
         self.imgIds = self.coco.getImgIds(catIds=self.catId)
@@ -39,21 +38,10 @@ class COCODataset(data.Dataset):
         max_area_ann = max(anns, key=lambda x: x['area'])    # ann ID
         bbox = max_area_ann['bbox']
 
-        template, detection, bbox_of_detection, max_area_ann['segmentation'] = self.transform_cords(img, bbox, max_area_ann['segmentation'])
-
-        template = np.array(template)
-        detection = np.array(detection)
-        if len(template.shape) == 2:
-            template = np.expand_dims(template, axis=2)
-            template = np.concatenate((template, template, template), axis=-1)
-            detection = np.expand_dims(detection, axis=2)
-            detection = np.concatenate((detection, detection, detection), axis=-1)
-
-
+        meta['template'], meta['detection'], meta['cords_of_bbox_in_detection'], max_area_ann['segmentation'] = self.transform_cords(img, bbox, max_area_ann['segmentation'])
 
         t = self.coco.imgs[max_area_ann['image_id']]
         t['height'], t['width'] = 255, 255
-        print(max_area_ann)
         mask = self.coco.annToMask(max_area_ann)
 
         c_x = np.mean(mask.nonzero()[0])            # numpy 下的x, y坐标 与opencv相反
@@ -70,42 +58,57 @@ class COCODataset(data.Dataset):
         f_cy = round(max(0, (c_y - 31) / 8))
 
         valid_centers = self.get_valid_center_from_fm(25, f_cx, f_cy)
+        
         gt_class = self.gen_gt_class(25, valid_centers)
 
         valid_centers_in_ori = self.coord_transform(valid_centers, 'f2o')
+        ##################################################
+        # TODO
+        # 添加中心点周围8个点坐标及其对应边界点
+        # 考虑中心点在边界的情况
+        # 输入与输出的坐标变换公式为 p_in = 8p_out + 31
+        # 具体分为两个阶段 第一阶段 p_in = 8p_backbone + 7 第二阶段 p_backbone = p_out + 3
+        ##################################################
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         contours = np.concatenate(contours)          # size: n * 1 * 2
         contours = contours.reshape(-1, 2)           # 此处为opencv的x, y坐标，后处理需要交换
 
-        distances = torch.ones(25, 25, 36) * 1e-6
+        distances = []
         new_coordinates = []
-        for i, c in enumerate(valid_centers_in_ori):
-          dst, new_coord = self.get_36_coordinates(c[0], c[1], contours)  # distance is a list, new_coord is a dictionary which keys are angles(0 ~ 360, 10)
-          distances[int(valid_centers[i][0]), int(valid_centers[i][1]), :] = dst
+        for c in valid_centers_in_ori:
+          print(c)
+          dst, new_coord = self.get_36_coordinates(c[0][0], c[0][1], contours)  # distance is a list, new_coord is a dictionary which keys are angles(0 ~ 360, 10)
+          distances.append(dst.reshape((1,-1)))
           new_coordinates.append(new_coord)
 
-        # distances = torch.cat(distances[:], 0)
+        #distances = torch.Tensor(distances)
+        #new_coordinates = torch.Tensor(new_coordinates)
+
+        distances = torch.cat(distances[:], 0)
+
         distance, new_coord = self.get_36_coordinates(c_x, c_y, contours)
+        ####################################################
+        # TODO
+        # Transform image
 
-        if self.transforms is not None:
-            template = self.transforms(template)
-            detection = self.transforms(detection)
-
-        # meta['id'] = max_area_ann['id']
-        # meta['imgId'] = max_area_ann['image_id']
-        meta['template'] = template                     # 模板 3 * 127 * 127
-        meta['detection'] = detection                   # 检测 3 * 256 * 256
-        meta['bbox_of_detection'] = bbox_of_detection   # 检测帧坐标系下的bbox,
-        meta['center'] = center                         # 检测帧坐标系下中心坐标
-        meta['distance'] = distance                     # 检测帧坐标系下距离
-        meta['coords'] = new_coord                      # 字典， 键为角度，键值为距离
+        # meta['image'] = self.transform(img)
+        #if img is not None:
+        #  meta['template'], meta['detection'], meta['bbox'], meta['center'], meta['distance'] = self.transform_inf(img, bbox, center, distance)
+        #self.transform(img, bbox, center, distance)
+        ####################################################
+        meta['id'] = max_area_ann['id']
+        meta['imgId'] = max_area_ann['image_id']
+        #meta['bbox'] = bbox
+        meta['center'] = center
+        meta['distance'] = distance
+        meta['coords'] = new_coord
         meta['targets'] = {
-            'distances': distances,                     # 25 * 25 * 36
-            'gt_class': gt_class,                       # 25 * 25
+            'distances': distances,
+            'gt_class': gt_class,
         }
-        # meta['valid_centers'] = valid_centers
-        # meta['mask'] = torch.Tensor(mask).resize((255, 255))
+        meta['valid_centers'] = valid_centers
+        #meta['mask'] = torch.Tensor(mask).resize((255, 255))
 
         return meta
 
@@ -172,13 +175,13 @@ class COCODataset(data.Dataset):
           for j in range(-1, 2):
             #print(c_x + i, c_y + j)
             if c_x + i in range(0, fm_size) and c_y + j in range(0, fm_size):
-              valid_centers.append(np.array((c_x + i, c_y + j)))
+              valid_centers.append(torch.Tensor((c_x + i, c_y + j)).reshape((1,2)))
         return valid_centers
 
     def gen_gt_class(self, fm_size, valid_centers):
         gt_class = np.zeros((fm_size, fm_size))
         for c in valid_centers:
-          gt_class[int(c[0]), int(c[1])] = 1
+          gt_class[int(c[0][0]), int(c[0][1])] = 1
         return torch.Tensor(gt_class)
 
     def coord_transform(self, coords, mode='f2o'):
@@ -298,68 +301,49 @@ class COCODataset(data.Dataset):
         return (template_img_resized, detection_img_resized, cords_of_bbox_in_resized_detection, segmentation_in_detection)
 
 
-if __name__ == '__main__':
-    annFile = '../annotations/instances_val2017.json'
-    imgDir = '../val2017'
-    mean = [0.471, 0.448, 0.408]
-    std = [0.234, 0.239, 0.242]
-    img_transforms = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-    ])
-    # coco =  COCO(annFile)
-    # max_area_ann ={'segmentation': [[39.485, 256.28, 15.317199602127076, 256.28, 1.1323999857902527, 256.28, 0.35759999200701714, 256.28, 19.921299829483033, 256.28, 32.586301250457765, 256.28, 39.09759965896606, 256.28, 44.863900909423826, 256.28, 45.23640090942383, 256.28, 45.23640090942383, 256.28, 44.476500568389895, 256.28, 42.55439920425415, 256.28, 41.79449886322021, 256.28], [0.0, 306.96, 5.65, 311.33, 7.71, 321.63, 8.22, 330.38, 8.99, 337.08, 7.96, 339.14, 6.16, 341.2, 0.24, 342.74]], 'area': 516.8099500000006, 'iscrowd': 0, 'image_id': 42070, 'bbox': [0.0, 306.96, 30.36, 56.89], 'category_id': 1, 'id': 1728146}
-    #
-    # t = coco.imgs[max_area_ann['image_id']]
-    # t['height'], t['width'] = 255, 255
-    # mask = coco.annToMask(max_area_ann)
-    # print(mask.shape)
-    # c_x = np.mean(mask.nonzero()[0])  # numpy 下的x, y坐标 与opencv相反
-    # c_y = np.mean(mask.nonzero()[1])
-    # print(c_x,c_y)
-    # contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    # contours = np.concatenate(contours)  # size: n * 1 * 2
-    # contours = contours.reshape(-1, 2)
-    # exit()
-    train_data = COCODataset(annFilePath=annFile, imgDir=imgDir, transforms = img_transforms)
-    train_loader = data.DataLoader(dataset=train_data, batch_size=5, shuffle=False)
-
-    def get_contours_from_polar(cx, cy, polar_coords):
-        new_coords = []
-        for angle, dst in polar_coords.items():
-            x = cx + dst * np.sin(angle * np.pi / 180)
-            y = cy + dst * np.cos(angle * np.pi / 180)
-            new_coords.append([x, y])
-        return new_coords
-
-
-    for i, Data in enumerate(train_loader):
-        temp = (Data)
-
-
-    template = temp['template'][0]
-    detection = temp['detection'][0]
-    center = temp['center'][0]
-    distance = temp['distance'][0]
-    coords = temp['coords']
-
-    #######################################
-    # 中心以及distance可视化
-    #
-    # new_coords = get_contours_from_polar(center[0], center[1], coords)
-    #
-    # trans = transforms.ToPILImage(mode='RGB')
-    # template = trans(template.squeeze())
-    # detection = trans(detection.squeeze())
-    #
-    #
-    # plt.figure(0)
-    # plt.subplot(1,2,1)
-    # plt.imshow(template)
-    #
-    # plt.subplot(1,2,2)
-    # for i in range(len(new_coords)):
-    #     plt.plot([int(center[1]), int(new_coords[i][1])], [int(center[0]), int(new_coords[i][0])], color='red')
-    # plt.imshow(detection)
-    # plt.show()
-    ######################################################
+# if __name__ == '__main__':
+#     annFile = '../annotations/instances_val2017.json'
+#     imgDir = '../val2017'
+#     mean = [0.471, 0.448, 0.408]
+#     std = [0.234, 0.239, 0.242]
+#     img_transforms = transforms.Compose([
+#         transforms.ToTensor(),
+#         transforms.Normalize(mean, std)
+#     ])
+#     # coco =  COCO(annFile)
+#     # max_area_ann ={'segmentation': [[39.485, 256.28, 15.317199602127076, 256.28, 1.1323999857902527, 256.28, 0.35759999200701714, 256.28, 19.921299829483033, 256.28, 32.586301250457765, 256.28, 39.09759965896606, 256.28, 44.863900909423826, 256.28, 45.23640090942383, 256.28, 45.23640090942383, 256.28, 44.476500568389895, 256.28, 42.55439920425415, 256.28, 41.79449886322021, 256.28], [0.0, 306.96, 5.65, 311.33, 7.71, 321.63, 8.22, 330.38, 8.99, 337.08, 7.96, 339.14, 6.16, 341.2, 0.24, 342.74]], 'area': 516.8099500000006, 'iscrowd': 0, 'image_id': 42070, 'bbox': [0.0, 306.96, 30.36, 56.89], 'category_id': 1, 'id': 1728146}
+#     #
+#     # t = coco.imgs[max_area_ann['image_id']]
+#     # t['height'], t['width'] = 255, 255
+#     # mask = coco.annToMask(max_area_ann)
+#     # print(mask.shape)
+#     # c_x = np.mean(mask.nonzero()[0])  # numpy 下的x, y坐标 与opencv相反
+#     # c_y = np.mean(mask.nonzero()[1])
+#     # print(c_x,c_y)
+#     # contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+#     # contours = np.concatenate(contours)  # size: n * 1 * 2
+#     # contours = contours.reshape(-1, 2)
+#     # exit()
+#     train_data = COCODataset(annFilePath=annFile, imgDir=imgDir, transforms = img_transforms)
+#     train_loader = data.DataLoader(dataset=train_data, batch_size=5, shuffle=False)
+#
+#     def get_contours_from_polar(cx, cy, polar_coords):
+#         new_coords = []
+#         for angle, dst in polar_coords.items():
+#             x = cx + dst * np.sin(angle * np.pi / 180)
+#             y = cy + dst * np.cos(angle * np.pi / 180)
+#             new_coords.append([x, y])
+#         return new_coords
+#
+#
+#
+#
+# annFile = '../instances_val2017.json'
+# imgDir = '../val2017'
+# train_data = COCODataset(annFilePath=annFile, imgDir=imgDir)
+# train_loader = data.DataLoader(dataset=train_data, batch_size=5, shuffle=False)
+#
+# for i, Data in enumerate(train_loader):
+#     if i > 0:
+#         break
+#     print(Data['id'])
