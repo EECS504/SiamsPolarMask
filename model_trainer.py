@@ -27,8 +27,8 @@ class model_trainer:
     def train(self, train_loader, valid_loader):
         image_num = len(train_loader.dataset.indices)
         niter = np.int(np.ceil(image_num / self.batch_size))
-        train_loss_history = {}
-        valid_loss_history = {}
+        train_loss_history = {'total_loss': [], 'cls_loss': [], 'reg_loss': [], 'centerness_loss': []}
+        valid_loss_history = {'total_loss': [], 'cls_loss': [], 'reg_loss': [], 'centerness_loss': []}
         for i in range(self.num_epochs):
             self.model.train()
             start_t = time.time()
@@ -54,7 +54,6 @@ class model_trainer:
                 batch_detection = batch_detection.to(self.device)
                 GT_cls = GT_cls.to(self.device)
                 GT_mask = GT_mask.to(self.device)
-                print(self.device)
                 cls, mask_reg, centerness = self.model.forward(batch_template, batch_detection)
                 cls_loss, reg_loss, centerness_loss = self.criterion.forward(cls, mask_reg, centerness, GT_cls, GT_mask)
                 loss = cls_loss + 1.5 * reg_loss + centerness_loss
@@ -91,12 +90,12 @@ class model_trainer:
                        # save_checkpoint(self.model.module.state_dict(), is_best=True, checkpoint_dir=os.getcwd() + '/checkpoint/')
             if (i + 1) % 5 == 0:
                 print('Save the current model to checkpoint!')
-                save_checkpoint(self.model.module.state_dict(), is_best= False, checkpoint_dir= os.getcwd() + '/checkpoint/')
+                save_checkpoint(self.model.state_dict(), is_best= False, checkpoint_dir= os.getcwd() + '/checkpoint/')
                 torch.save(train_loss_history, os.getcwd() + '/checkpoint/train_loss.pt')
                 torch.save(valid_loss_history, os.getcwd() + '/checkpoint/valid_loss.pt')
             if i == np.argmin(valid_loss_history):
                 print('The current model is the best model! Save it!')
-                save_checkpoint(self.model.module.state_dict(), is_best=True,
+                save_checkpoint(self.model.state_dict(), is_best=True,
                                 checkpoint_dir=os.getcwd() + '/checkpoint/')
 
             self.lr_scheduler.step(val_tot_loss)

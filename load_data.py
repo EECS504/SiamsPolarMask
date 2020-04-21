@@ -238,25 +238,28 @@ class COCODataset(data.Dataset):
         detection_resized_ratio = round(256 / detection_square_size, 2)
 
         segmentation_in_padding_img = segmentation_in_original_image
-        for i in range(len(segmentation_in_original_image[0]) // 2):
-            segmentation_in_padding_img[0][2 * i] = segmentation_in_original_image[0][2 * i] + top  # left
-            segmentation_in_padding_img[0][2 * i + 1] = segmentation_in_original_image[0][2 * i + 1] + left  # top
+        for i in range(len(segmentation_in_original_image)):
+            for j in range(len(segmentation_in_original_image[i]) // 2):
+                segmentation_in_padding_img[i][2 * j] = segmentation_in_original_image[i][2 * j] + top  # left
+                segmentation_in_padding_img[i][2 * j + 1] = segmentation_in_original_image[i][2 * j + 1] + left  # top
 
         x11, y11 = detection_tlcords_of_padding_image
         x12, y12 = detection_rbcords_of_padding_image
 
         segmentation_in_cropped_img = segmentation_in_padding_img
-        for i in range(len(segmentation_in_padding_img[0]) // 2):
-            segmentation_in_cropped_img[0][2 * i] = segmentation_in_padding_img[0][2 * i] - x11
-            segmentation_in_cropped_img[0][2 * i + 1] = segmentation_in_padding_img[0][2 * i + 1] - y11
-            segmentation_in_cropped_img[0][2 * i] = np.clip(segmentation_in_cropped_img[0][2 * i], 0, x12 - x11).astype(
-                np.float32)
-            segmentation_in_cropped_img[0][2 * i + 1] = np.clip(segmentation_in_cropped_img[0][2 * i + 1], 0,
-                                                                y12 - y11).astype(np.float32)
+        for i in range(len(segmentation_in_padding_img)):
+            for j in range(len(segmentation_in_padding_img[i]) // 2):
+                segmentation_in_cropped_img[i][2 * j] = segmentation_in_padding_img[i][2 * j] - x11
+                segmentation_in_cropped_img[i][2 * j + 1] = segmentation_in_padding_img[i][2 * j + 1] - y11
+                segmentation_in_cropped_img[i][2 * j] = np.clip(segmentation_in_cropped_img[i][2 * j], 0,
+                                                                x12 - x11).astype(np.float32)
+                segmentation_in_cropped_img[i][2 * j + 1] = np.clip(segmentation_in_cropped_img[i][2 * j + 1], 0,
+                                                                    y12 - y11).astype(np.float32)
 
         segmentation_in_detection = segmentation_in_cropped_img
-        for i in range(len(segmentation_in_cropped_img[0])):
-            segmentation_in_detection[0][i] = segmentation_in_cropped_img[0][i] * detection_resized_ratio
+        for i in range(len(segmentation_in_cropped_img)):
+            for j in range(len(segmentation_in_cropped_img[i])):
+                segmentation_in_detection[i][j] = segmentation_in_cropped_img[i][j] * detection_resized_ratio
 
         blcords_of_bbox_in_padding_image, btcords_of_bbox_in_padding_image, brcords_of_bbox_in_padding_image, bbcords_of_bbox_in_padding_image = \
         bbox_x1y1x2y2[0] + left, bbox_x1y1x2y2[1] + top, bbox_x1y1x2y2[2] + left, bbox_x1y1x2y2[3] + top
@@ -284,8 +287,7 @@ class COCODataset(data.Dataset):
         #  #print(distances[i]*np.cos(angle/18 *np.pi))
         #  draw.line([(cords_of_center_in_resized_detection[0], cords_of_center_in_resized_detection[1]), (cords_of_center_in_resized_detection[0]+distances[angle]*np.cos(angle/18 *np.pi),cords_of_center_in_resized_detection[1]+distances[angle]*np.sin(angle/18 *np.pi))], width=1, fill='red')
         # detection_img_resized_copy2.save(osp.join(self.tmp_dir, 'polarmask_in_detection_img_resized.jpg'))
-        return (
-        template_img_resized, detection_img_resized, cords_of_bbox_in_resized_detection, segmentation_in_detection)
+        return (template_img_resized, detection_img_resized, cords_of_bbox_in_resized_detection, segmentation_in_detection)
 
 class load_data:
     def __init__(self, annFile, imgDir):
