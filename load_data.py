@@ -328,7 +328,7 @@ if __name__ == '__main__':
     for i, Data in enumerate(train_loader):
 
         temp = (Data)
-        if i == 9:
+        if i == 10:
             break
 
     template = temp['template'][0]
@@ -354,20 +354,18 @@ if __name__ == '__main__':
     detection = trans(detection.squeeze())
 
     plt.figure(0)
-    plt.subplot(1, 3, 1)
+    plt.subplot(1, 4, 1)
     plt.imshow(template)
 
-    plt.subplot(1, 3, 2)
+    plt.subplot(1, 4, 2)
     for i in range(len(new_coords)):
         plt.plot([int(center[0]), int(new_coords[i][0])], [int(center[1]), int(new_coords[i][1])], color='red')
     plt.imshow(detection)
 
-    plt.subplot(1,3,3)
+    plt.subplot(1, 4, 3)
     plt.imshow(GT_mask)
 
-    plt.show()
-    #####################################################
-
+    plt.subplot(1, 4, 4)
     ann_id = temp['id'][0].cpu()
     ann_id = int(np.array(ann_id))
     image_id = temp['imgId'][0].cpu()
@@ -375,10 +373,9 @@ if __name__ == '__main__':
     coco = COCO(annFile)
     anns = coco.loadAnns(ann_id)
     bbox = anns[0]['bbox']
-
     img_info = coco.loadImgs(image_id)[0]
     img = cv2.imread(osp.join(imgDir, img_info['file_name']))
+    plt.imshow(img)
+    plt.show()
+    #####################################################
 
-    cv2.imshow("test",img)
-
-    cv2.waitKey()
