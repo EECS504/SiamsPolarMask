@@ -93,12 +93,12 @@ class model_trainer:
                        # save_checkpoint(self.model.module.state_dict(), is_best=True, checkpoint_dir=os.getcwd() + '/checkpoint/')
             if (i + 1) % 5 == 0:
                 print('Save the current model to checkpoint!')
-                save_checkpoint(self.model.state_dict(), is_best= False, checkpoint_dir= os.getcwd() + '/checkpoint/')
+                save_checkpoint(self.model.module.state_dict(), is_best= False, checkpoint_dir= os.getcwd() + '/checkpoint/')
                 torch.save(train_loss_history, os.getcwd() + '/checkpoint/train_loss.pt')
                 torch.save(valid_loss_history, os.getcwd() + '/checkpoint/valid_loss.pt')
-            if i == np.argmin(valid_loss_history):
+            if i == np.argmin(valid_loss_history['total_loss']):
                 print('The current model is the best model! Save it!')
-                save_checkpoint(self.model.state_dict(), is_best=True,
+                save_checkpoint(self.model.module.state_dict(), is_best=True,
                                 checkpoint_dir=os.getcwd() + '/checkpoint/')
 
             self.lr_scheduler.step(val_tot_loss)

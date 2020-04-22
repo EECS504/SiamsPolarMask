@@ -72,9 +72,8 @@ class CARHead(torch.nn.Module):
     def forward(self, x):
         cls_tower = self.cls_tower(x)
         logits = self.cls_logits(cls_tower)
-        mask_tower = self.mask_tower(x)
-        centerness = self.centerness(mask_tower)
-        mask_reg = torch.exp(self.mask_pred(mask_tower))
+        centerness = self.centerness(cls_tower)
+        mask_reg = torch.exp(self.mask_pred(self.mask_tower(x)))
 
         return logits, mask_reg, centerness
 

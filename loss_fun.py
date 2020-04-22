@@ -3,15 +3,30 @@ import torch
 import torch.nn as nn
 
 
+def get_cls_loss(pred, label, select):
+    if len(select.size()) == 0 or \
+            select.size() == torch.Size([0]):
+        return 0
+    pred = torch.index_select(pred, 0, select)
+    label = torch.index_select(label, 0, select)
+    return F.nll_loss(pred, label)
+
 def my_log_softmax(cls):
     b, a2, h, w = cls.size()
-    # N, 2, 25, 25
     cls = cls.view(b, 2, a2 // 2, h, w)
-    # N, 2, 1, 25, 25
     cls = cls.permute(0, 2, 3, 4, 1).contiguous()
-    # N, 1, 25, 25, 2
-    cls = F.log_softmax(cls, dim=4) # The last dim, shrink the scores to range (0,1)
+    cls = F.log_softmax(cls, dim=4)
     return cls
+
+def select_cross_entropy_loss(pred, label):
+    pred = pred.view(-1, 2)
+    label = label.view(-1)
+    pos = label.data.eq(1).nonzero().squeeze().cuda()
+    neg = label.data.eq(0).nonzero().squeeze().cuda()
+    loss_pos = get_cls_loss(pred, label, pos)
+    loss_neg = get_cls_loss(pred, label, neg)
+    return loss_pos * 0.5 + loss_neg * 0.5
+
 class MaskIOULoss(nn.Module):
     def __init__(self):
         super(MaskIOULoss, self).__init__()
@@ -115,7 +130,7 @@ class My_loss(object):
         GT_labels_flatten = (GT_labels.view(-1))
         # GT_labels_flatten (N*25*25)
         cls = my_log_softmax(cls)
-        # cls N*25*25*2
+        # cls N*1*25*25*2
         cls_flatten = (cls.view(-1, num_cls))
         # cls_flatten (N*25*25)*2
         GT_masks_flatten = (GT_masks.view(-1, num_vertexes))
@@ -131,7 +146,7 @@ class My_loss(object):
         centerness_flatten = centerness_flatten[pos_inds]
         centerness_GT = self.compute_centerness_targets(GT_masks_flatten)
         # Calculate the cls loss for both positive and negative labels
-        cls_loss = F.cross_entropy(cls_flatten, GT_labels_flatten)
+        cls_loss = select_cross_entropy_loss(cls_flatten, GT_labels_flatten)
         # Only calculate IOU loss and centerness loss for positive labels
         if pos_inds.numel() > 0:
             reg_loss = self.mask_reg_loss_func(
