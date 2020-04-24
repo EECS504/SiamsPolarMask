@@ -199,6 +199,25 @@ class DavisDataset(data.Dataset):
                 new_coords.append(round((c - 31) / 8))
         return new_coords
 
+    def transform_one_point_cords(self, original, bbox, cords_of_one_point):
+        bbox_xywh =  np.array([bbox[0] + bbox[2] // 2, bbox[1] + bbox[3] // 2, bbox[2], bbox[3]],np.float32)  # 将标注ann中的bbox从左上点的坐标+bbox长宽 -> 中心点的坐标+bbox的长宽
+
+        original_image_w, original_image_h = original.size
+        cx, cy, tw, th = bbox_xywh
+
+        p = round((tw + th) / 2, 2)
+        template_square_size = int(np.sqrt((tw + p) * (th + p)))  # a
+        detection_square_size = int(template_square_size * 2)  # A = 2a
+
+        detection_lt_x, detection_lt_y = cx - detection_square_size // 2, cy - detection_square_size // 2
+        detection_rb_x, detection_rb_y = cx + detection_square_size // 2, cy + detection_square_size // 2
+
+        x, y = cords_of_one_point[0], cords_of_one_point[1]
+
+        x_in_detection_before_resize, y_in_detection_before_resize = x - detection_lt_x, y - detection_lt_y
+        x_in_detection_after_resize,  y_in_detection_before_resize = (x_in_detection_before_resize/detection_square_size*255), (y_in_detection_before_resize/detection_square_size*255)
+
+        return (x_in_detection_after_resize,  y_in_detection_before_resize)
 
     def transform_cords(self, image, bbox, segmentation_in_original_image):
         mean_template_and_detection = tuple(map(round, ImageStat.Stat(image).mean))
@@ -305,17 +324,17 @@ class DavisDataset(data.Dataset):
 
         # get bounding box from anno
         tbbox, _ = self._get_bbox_center_from_mask(template_mask)
-        sbbox, _ = self._get_bbox_center_from_mask(detection_mask)
+        sbbox, sc = self._get_bbox_center_from_mask(detection_mask)
 
         # get segmentation and transformed segmentation
         contours_template, _ = cv2.findContours(template_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         contours_detect, _ = cv2.findContours(detection_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-        contours_template = np.concatenate(contours_template).reshape(-1)
-        contours_detect = np.concatenate(contours_detect).reshape(-1)
+        contours_template = np.concatenate(contours_template).reshape(-1, 2)
+        contours_detect = np.concatenate(contours_detect).reshape(-1, 2)
 
-        template_target, _, _, _ = self.transform_cords(template[0], tbbox, [contours_template])
-        _, detection_target, bbox_of_detection, detection_seg = self.transform_cords(detection[0], sbbox, [contours_detect])
+        template_target, _, _, _ = self.transform_cords(template[0], tbbox, [contours_template[::20].reshape(-1)])
+        _, detection_target, bbox_of_detection, detection_seg = self.transform_cords(detection[0], sbbox, [contours_detect[::20].reshape(-1)])
 
         template_target = np.array(template_target)
         detection_target = np.array(detection_target)
@@ -336,9 +355,12 @@ class DavisDataset(data.Dataset):
         kernel = np.ones((3,3), dtype=np.uint8) * 255
         detection_mask_trans = cv2.morphologyEx(detection_mask_trans, cv2.MORPH_CLOSE, kernel)
 
-        sc_x = np.mean(detection_mask_trans.nonzero()[1])
-        sc_y = np.mean(detection_mask_trans.nonzero()[0])
-        sc = np.array([sc_x, sc_y])
+        # sc_x = np.mean(detection_mask_trans.nonzero()[1])
+        # sc_y = np.mean(detection_mask_trans.nonzero()[0])
+        # sc = np.array([sc_x, sc_y])
+
+        sc = self.transform_one_point_cords(detection[0], sbbox, sc)
+        sc = np.array(sc)
 
         # find center in feature map
         f_cx = round(max(0, (sc[0] - 31) / 8))
@@ -366,8 +388,8 @@ class DavisDataset(data.Dataset):
         distance, new_coord = self.get_36_coordinates(sc[0], sc[1], contours)
 
         if self.transforms is not None:
-            template = self.transforms(template)
-            detection = self.transforms(detection)
+            template_target = self.transforms(template_target)
+            detection_target = self.transforms(detection_target)
 
         meta = {}
         meta['imgId'] = {
@@ -468,15 +490,18 @@ if __name__ == "__main__":
         GT_mask = temp['mask'][0].numpy()
         new_coords = get_contours_from_polar(center[0], center[1], coords)
 
-        mask = np.array([GT_mask, GT_mask, GT_mask]).transpose(1,2,0)
-        
+        mask = cv2.UMat(np.array([GT_mask, GT_mask, GT_mask], dtype=np.uint8).transpose(1,2,0))
+        print(type(mask) == type(detection))
         for i in range(len(new_coords)):
-            cv2.line(detection, (int(center[0]), int(center[1])), (int(new_coords[i][0]), int(new_coords[i][1])), (0,0,255), 2)
+            cv2.line(detection, (int(center[0]), int(center[1])), (int(new_coords[i][0]), int(new_coords[i][1])), (0,0,255), 1)
+
+        cv2.rectangle(detection, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0,0,255), 1)
+        cv2.rectangle(mask, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0,0,255), 1)
 
         template_show = np.zeros_like(detection)
         template_show[64:64+127, 64:64+127, :] = template
 
-        imgs = np.hstack([template_show, detection, mask])
+        imgs = np.hstack([template_show, detection, mask.get()])
         cv2.imshow("imgs", imgs)
         cv2.waitKey(0)
 
