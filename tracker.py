@@ -99,6 +99,7 @@ class MyTracker(object):
         return score
 
     def _bbox_clip(self, cx, cy, width, height, mask, boundary):
+        print(boundary[1],boundary[0])
         cx = max(0, min(cx, boundary[1]))
         cy = max(0, min(cy, boundary[0]))
         width = max(10, min(width, boundary[1]))
@@ -117,7 +118,7 @@ class MyTracker(object):
         self.center_pos = np.array([bbox[0]+(bbox[2]-1)/2, bbox[1]+(bbox[3]-1)/2])
         self.size = np.array([bbox[2], bbox[3]])
         self.mask = np.array(mask)
-        print(self.center_pos[0], self.center_pos[1])
+        print("bbox中心",self.center_pos[0], self.center_pos[1])
         # calculate channle average
         self.channel_average = np.mean(img, axis=(0, 1))
 
@@ -172,18 +173,19 @@ class MyTracker(object):
         return penalty
 
 
-    def get_size_from_mask(self, cx, cy, distances):
+    def get_size_from_mask(self, cx, cy, distances,size):
         x = []
         y = []
         angle = 0
         for dst in distances:
+
             x.append(dst * np.cos(angle * np.pi / 180))
             y.append(dst * np.sin(angle * np.pi / 180))
             angle += 10
-        w = max(x) - min(x)
-        h = max(y) - min(y)
-        bbox_cen_x = cx + min(x) + w / 2
-        bbox_cen_y = cy + min(y) + h / 2
+        w = min(max(x) - min(x),size[0])
+        h = min(max(y) - min(y),size[1])
+        bbox_cen_x = cx #+ min(x) + w / 2
+        bbox_cen_y = cy #    + min(y) + h / 2
 
         return int(w), int(h), int(bbox_cen_x), int(bbox_cen_y)
 
@@ -202,6 +204,8 @@ class MyTracker(object):
         score = self._convert_score(score)
         score = score.squeeze()
 
+        max_r_1, max_c_1 = np.unravel_index(score.argmax(), score.shape)
+        print("网络输出最大",max_r_1,max_c_1)
         cen = cen.data.cpu().numpy()
         cen = cen.squeeze()
 
@@ -209,47 +213,51 @@ class MyTracker(object):
         masks = masks.data.cpu().numpy()
 
 
-        # if self.cfg.hanming:
-        #     h_score = score*(1-hp['w_lr']) + self.window * hp['w_lr']
-        # else:
-        #     h_score = score
+        if self.cfg.hanming:
+            h_score = score*(1-hp['w_lr']) + self.window * hp['w_lr']
+        else:
+            h_score = score
 
-        score_up = cv2.resize(score, (193, 193), interpolation=cv2.INTER_CUBIC)
+        score_up = cv2.resize(h_score, (193, 193), interpolation=cv2.INTER_CUBIC)
         cen_up = cv2.resize(cen, (193, 193), interpolation=cv2.INTER_CUBIC)
         scale_resmap = 193 / 25
-        res_map_up = score_up#        * cen_up
+        res_map_up = score_up * cen_up
 
 
         max_r_up, max_c_up = np.unravel_index(res_map_up.argmax(), res_map_up.shape)
+
         max_r, max_c = int(round(max_r_up/scale_resmap)), int(round(max_c_up/scale_resmap))
-        print(max_r,max_c)
+        print("处理后最大",max_r,max_c)
         max_r_up += 31
         max_c_up += 31
+        # print("255最大", max_r_up, max_c_up)
         mask = masks[max_r, max_c] / self.scale_z
+        print("mask平均", np.mean(mask))
 
-        print(max_r_up,max_c_up)
         p_cool_s = np.array([max_r_up, max_c_up])
         disp = p_cool_s - (np.array([255, 255]) - 1.) / 2.
-        disp_ori = disp / self.scale_z
+        disp_ori = disp #/ self.scale_z
+        #print("偏差",disp,disp_ori)
         ave_cx = disp_ori[1] + self.center_pos[0]
         ave_cy = disp_ori[0] + self.center_pos[1]
 
-        print(ave_cx,ave_cy)
+        #print("原图重心",ave_cx,ave_cy)
 
-        ave_w, ave_h, bbox_cen_x, bbox_cen_y = self.get_size_from_mask(ave_cx,ave_cy,mask)
-
-
+        ave_w, ave_h, bbox_cen_x, bbox_cen_y = self.get_size_from_mask(ave_cx, ave_cy, mask,self.size)
+        #print("原图中心切割前", bbox_cen_x, bbox_cen_y)
+        print("长宽",ave_w,ave_h)
         s_c = self.change(self.sz(ave_w, ave_h) / self.sz(self.size[0]*self.scale_z, self.size[1]*self.scale_z))
         r_c = self.change((self.size[0] / self.size[1]) / (ave_w / ave_h))
         penalty = np.exp(-(r_c * s_c - 1) * hp['pk'])
         lr = penalty * score[max_r, max_c] * hp['lr']
+        print("lr",lr)
         width = lr * ave_w + (1-lr) * self.size[0]
         height = lr * ave_h + (1-lr) * self.size[1]
         mask = lr * mask + (1-lr)*self.mask
 
         # clip boundary
         cx, cy, width, height, mask = self._bbox_clip(bbox_cen_x, bbox_cen_y, width, height, mask, img.shape[:2])
-        print(cx,cy)
+        print("原图中心切割后",cx,cy)
         # udpate state
         self.center_pos = np.array([cx, cy])
         self.size = np.array([width, height])

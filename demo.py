@@ -119,7 +119,7 @@ def get_bbox_mask(ann_path):
     contours_template, _ = cv2.findContours(ann, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contours_template = np.concatenate(contours_template).reshape(-1, 2)
     mask, _ = get_36_coordinates(center[0], center[1], contours_template)
-    print(center[0],center[1])
+    # print("bbox重心", center[0],center[1])
     return bbox, mask, center
 
 
