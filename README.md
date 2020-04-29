@@ -31,7 +31,7 @@ Click on "run" !
 ## Results
 ### Detection and Segmentation on MS COCO
 Our model can successfully detect and segment the object on MS COCO if given a single image.
-![](images/COCO.png | width=100)
+![](images/COCO.png){:height="75%" width="75%"}
 ### Detection and Segmentation on DAVIS
 Our model can successfully detect and segment the object on DAVIS if given a single image.
 ![](images/Results.png | width=100)
