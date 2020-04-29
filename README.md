@@ -1,5 +1,5 @@
 # SiamPolarMask
-This is an pytorch implementation of Siam Polar Mask, which is a mixed model of Siam Car and Polar Mask, for more details, please visit: </br >
+This is a pytorch implementation of Siam Polar Mask, which is a mixed model of Siam Car and Polar Mask, for more details, please visit: </br >
 1. [Polar Mask (CVPR 2020)](https://arxiv.org/abs/1608.03983), [Source Code](https://github.com/xieenze/PolarMask)</br >
 2. [Siam Car (CVPR 2020, Oral)](https://arxiv.org/abs/1911.07241), [Source Code](https://github.com/ohhhyeahhh/SiamCAR)</br >
 3. [Siam Mask (CVPR 2019)](https://arxiv.org/abs/1812.05050), [Source Code](https://github.com/foolwood/SiamMask)</br >
@@ -8,7 +8,7 @@ This is an pytorch implementation of Siam Polar Mask, which is a mixed model of 
 We propose a neural network consisting of two parts: one Siamese subnetwork for feature extraction and one classification-mask subnetwork for polar mask prediction. We will first use resnet-50 as backbone, and the network architecture is shown below.
 ### Network Architecture
 The "star" in the figure below denotes the depth-wise cross correlation.
-![](images/network_architecture.png)
+![](images/Network_architecture.png)
 
 ### Polar Representation
 Instead of using pixel level mask (like mask-rcnn), we represent the mask by one center and 36 rays with the same angle interval (10 degrees) in Polar coordinate, as shown below. Since the angle interval is pre-defined, only the length of the ray needs to be predicted. Therefore, we formulate the instance segmentation as instance center classification and dense distance regression in a Polar coordinate.
@@ -26,5 +26,15 @@ Click on "run" !
 ## Training Dataset
 1. [MS COCO](http://cocodataset.org/#home) </br >
 2. [DAVIS](https://davischallenge.org) </br >
-
+## Tracking Process
+![](images/template2mask.png)
 ## Results
+### Detection and Segmentation on MS COCO
+Our model can successfully detect and segment the object on MS COCO if given a single image.
+![](images/COCO.png)
+### Detection and Segmentation on DAVIS
+Our model can successfully detect and segment the object on DAVIS if given a single image.
+![](images/Results.png)
+### Tracking and Segmentation on DAVIS
+This is a very challenging task, our model can successfully track the object in some videos (frames 1-5 at the top), but fails in some other videos (frames 1-5 at the bottom).
+![](images/frames.png)
