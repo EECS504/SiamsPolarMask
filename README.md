@@ -31,10 +31,10 @@ Click on "run" !
 ## Results
 ### Detection and Segmentation on MS COCO
 Our model can successfully detect and segment the object on MS COCO if given a single image.
-![](images/COCO.png)
+![](images/COCO.png | width=100)
 ### Detection and Segmentation on DAVIS
 Our model can successfully detect and segment the object on DAVIS if given a single image.
-![](images/Results.png)
+![](images/Results.png | width=100)
 ### Tracking and Segmentation on DAVIS
 This is a very challenging task, our model can successfully track the object in some videos (frames 1-5 at the top), but fails in some other videos (frames 1-5 at the bottom).
 ![](images/frames.png)
