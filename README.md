@@ -34,7 +34,7 @@ Our model can successfully detect and segment the object on MS COCO if given a s
 <img src="images/COCO.png" alt="COCO" height="50%" width="50%">
 ### Detection and Segmentation on DAVIS
 Our model can successfully detect and segment the object on DAVIS if given a single image.
-![](images/Results.png)
+<img src="images/Results.png" alt="COCO" height="75%" width="75%">
 ### Tracking and Segmentation on DAVIS
 This is a very challenging task, our model can successfully track the object in some videos (frames 1-5 at the top), but fails in some other videos (frames 1-5 at the bottom).
 ![](images/frames.png)
