@@ -1,1 +1,0 @@
-python3 train.py --batch 32 --lr 1e-3 --epochs 100
