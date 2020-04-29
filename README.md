@@ -1,5 +1,5 @@
 # SiamPolarMask
-This is an implementation of Siam Polar Mask, which is a mixed model of Siam Car and Polar Mask, for more details, please visit: </br >
+This is an pytorch implementation of Siam Polar Mask, which is a mixed model of Siam Car and Polar Mask, for more details, please visit: </br >
 1. [Polar Mask (CVPR 2020)](https://arxiv.org/abs/1608.03983), [Source Code](https://github.com/xieenze/PolarMask)</br >
 2. [Siam Car (CVPR 2020, Oral)](https://arxiv.org/abs/1911.07241), [Source Code](https://github.com/ohhhyeahhh/SiamCAR)</br >
 3. [Siam Mask (CVPR 2019)](https://arxiv.org/abs/1812.05050), [Source Code](https://github.com/foolwood/SiamMask)</br >
@@ -22,3 +22,9 @@ You can edit the shell by:
 `python3 train.py --batch [the batch size] --lr [learning rate] --epochs [# of epochs] --continue_train [continue training]`
 ### If using IDE: </br >
 Click on "run" !
+
+## Training Dataset
+1. [MS COCO](http://cocodataset.org/#home) </br >
+2. [DAVIS](https://davischallenge.org) </br >
+
+## Results
