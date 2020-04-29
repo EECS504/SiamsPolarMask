@@ -27,6 +27,7 @@ Click on "run" !
 1. [MS COCO](http://cocodataset.org/#home) </br >
 2. [DAVIS](https://davischallenge.org) </br >
 ## Tracking Process
+Sub-figure A shows a pair of inputs while Sub-figure B shows the corresponding outputs of the model. From Sub-figure B we can observe that the outputs of the model can depict good prediction for different attributes of the object. Sub-figure C shows the predicted bounding boxes and masks cor- responding to this frame and last frame. Sub-figure D shows the final predicted bounding box and mask by averaging those boxes and masks in C.
 ![](images/template2mask.png)
 ## Results
 ### Detection and Segmentation on MS COCO
