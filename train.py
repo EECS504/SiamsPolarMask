@@ -5,11 +5,13 @@ import os
 from model import Mymodel
 from model_trainer import model_trainer
 from torch.utils.data import DataLoader, random_split
-from load_data import load_data
-#annfile = './Data/instances_val2017.json'
-#imgDir = './Data/val2017'
-annfile = '../annotations/instances_val2017.json'
-imgDir = '../val2017'
+from coco_loader import load_coco_data
+from davis_loader import  load_davis_data
+
+annfile = './Data/instances_val2017.json'
+imgDir = './Data/val2017'
+# annfile = '../annotations/instances_val2017.json'
+# imgDir = '../val2017'
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch', type=int, help='the train batch size', default=1)
 parser.add_argument('--lr', type=float, help='the learning rate', default=2e-3)
@@ -29,7 +31,9 @@ class train_model():
                  continue_train,
                  valid_percent):
 
-        p = load_data(annFile= annfile, imgDir = imgDir)
+        # p = load_data(annFile= annfile, imgDir = imgDir)
+        # Data = p.load()
+        p = load_davis_data()
         Data = p.load()
         self.batch_size = batch_size
 
@@ -69,8 +73,7 @@ class train_model():
         self.trainer = model_trainer(model=self.model,
                                      learning_rate=learning_rate,
                                      num_epochs=num_epochs,
-                                     batch_size=batch_size,
-                                     device = self.device
+                                     batch_size=batch_size
                                      )
 
     def train(self):

@@ -45,7 +45,8 @@ class model_trainer:
                         batch[key] = batch[key].to(self.device)
                     else:
                         for sub_key in batch[key]:
-                            batch[key][sub_key] = batch[key][sub_key].to(self.device)
+                            if torch.is_tensor(batch[key][sub_key]):
+                                batch[key][sub_key] = batch[key][sub_key].to(self.device)
 
                 batch_template = batch['template']
                 batch_detection = batch['detection']
@@ -59,7 +60,7 @@ class model_trainer:
 
                 cls, mask_reg, centerness = self.model.forward(batch_template, batch_detection)
                 cls_loss, reg_loss, centerness_loss = self.criterion.forward(cls, mask_reg, centerness, GT_cls, GT_mask)
-                loss = cls_loss + 1.5 * reg_loss + centerness_loss
+                loss = cls_loss + 1.5 * reg_loss + 0.1 * centerness_loss
 
                 acc_loss += loss.item()
                 acc_cls_loss += cls_loss.item()
@@ -118,15 +119,18 @@ class model_trainer:
                         batch[key] = batch[key].to(self.device)
                     else:
                         for sub_key in batch[key]:
-                            batch[key][sub_key] = batch[key][sub_key].to(self.device)
+                            if torch.is_tensor(batch[key][sub_key]):
+                                batch[key][sub_key] = batch[key][sub_key].to(self.device)
                 batch_template = batch['template']
                 batch_detection = batch['detection']
                 GT_cls = batch['targets']['gt_class']
                 GT_mask = batch['targets']['distances']
+                # print(batch_template.shape)
+                # print(batch_detection.shape)
 
                 cls, mask_reg, centerness = self.model.forward(batch_template, batch_detection)
                 cls_loss, reg_loss, centerness_loss = self.criterion.forward(cls, mask_reg, centerness, GT_cls, GT_mask)
-                loss = cls_loss + 1.5 * reg_loss + centerness_loss
+                loss = cls_loss + 1.5 * reg_loss + 0.1 * centerness_loss
 
                 acc_loss += loss.item()
                 acc_cls_loss += cls_loss.item()

@@ -56,15 +56,15 @@ class Mymodel(nn.Module):
         self.adj = AdjustAllLayer([512, 1024, 2048], [256, 256, 256])
         self.head = CARHead(in_channels= 256)
         self.Down = nn.ConvTranspose2d(256 * 3, 256, 1, 1)
-        init_weights(self.adj, init_type='normal', mean=0, init_gain=0.02)
-        init_weights(self.head, init_type='normal', mean=0, init_gain=0.02)
-        init_weights(self.Down, init_type='normal', mean=0, init_gain=0.02)
+        init_weights(self.adj, init_type='normal', mean=0, init_gain=0.01)
+        init_weights(self.head, init_type='normal', mean=0, init_gain=0.01)
+        init_weights(self.Down, init_type='normal', mean=0, init_gain=0.01)
     def template(self, z):
         self.zf = self.adj.forward(self.backbone.forward(z))
     def track(self, x):
         xf = self.adj.forward(self.backbone.forward(x))
         features = xcorr_depthwise(xf[0], self.zf[0])
-        for i in range(len(xf) - 1):
+        for i in range(len(self.zf) - 1):
             feature_new = xcorr_depthwise(xf[i + 1], self.zf[i + 1])
             features = torch.cat([features, feature_new], 1)
         features = self.Down(features)
@@ -78,10 +78,8 @@ class Mymodel(nn.Module):
         for i in range(len(template) - 1):
             feature_new = xcorr_depthwise(search[i + 1], template[i + 1])
             features = torch.cat([features, feature_new], 1)
-
         features = self.Down(features)
         logits, mask_reg, centerness = self.head.forward(features)
-
         return logits, mask_reg, centerness
 
  # model = Mymodel()

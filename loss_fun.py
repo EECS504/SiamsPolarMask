@@ -79,7 +79,7 @@ class MaskIOULoss_v3(nn.Module):
          :return: loss
          '''
 
-        total = torch.stack([pred,target], -1)
+        total = torch.stack([pred, target], -1)
         # total has shape (N, 36, 2)
         l_max = total.max(dim=2)[0].pow(2) # 0 index is the tensor, 1 index is the arg
         l_min = total.min(dim=2)[0].pow(2)
@@ -100,6 +100,7 @@ class My_loss(object):
     def __init__(self):
         # we make use of mask IOU v3 Loss for mask regression,
         # but we found that L1 in log scale can yield a similar performance
+        # self.mask_reg_loss_func = MaskIOULoss_v3()
         self.mask_reg_loss_func = MaskIOULoss_v3()
         self.centerness_loss_func = nn.BCEWithLogitsLoss()
 
@@ -155,6 +156,8 @@ class My_loss(object):
                 weight=1.0,
                 avg_factor=len(pos_inds)
             )
+            # reg_loss = self.mask_reg_loss_func(mask_reg_flatten, GT_masks_flatten) / len(pos_inds)
+
             centerness_loss = self.centerness_loss_func(
                 centerness_flatten,
                 centerness_GT
