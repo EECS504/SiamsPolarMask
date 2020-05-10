@@ -199,11 +199,12 @@ class DavisDataset(data.Dataset):
                 new_coords.append(round((c - 31) / 8))
         return new_coords
 
-    def transform_one_point_cords(self, original, bbox, cords_of_one_point):
+    def transform_one_point_cords(self, original, center, bbox, cords_of_one_point):
         bbox_xywh =  np.array([bbox[0] + bbox[2] // 2, bbox[1] + bbox[3] // 2, bbox[2], bbox[3]],np.float32)  # 将标注ann中的bbox从左上点的坐标+bbox长宽 -> 中心点的坐标+bbox的长宽
 
         original_image_w, original_image_h = original.size
-        cx, cy, tw, th = bbox_xywh
+        cx, cy = center
+        _, _, tw, th = bbox_xywh
 
         p = round((tw + th) / 2, 2)
         template_square_size = int(np.sqrt((tw + p) * (th + p)))  # a
@@ -219,7 +220,9 @@ class DavisDataset(data.Dataset):
 
         return (x_in_detection_after_resize,  y_in_detection_before_resize)
 
-    def transform_cords(self, image, bbox, segmentation_in_original_image):
+    def transform_cords(self, image, center, bbox, segmentation_in_original_image):
+        '''bbox是根据mask生成的， center为目标的重心 非bbox中心
+        '''
         mean_template_and_detection = tuple(map(round, ImageStat.Stat(image).mean))
         bbox_xywh = np.array([bbox[0] + bbox[2] // 2, bbox[1] + bbox[3] // 2, bbox[2], bbox[3]],
                              np.float32)  # 将标注ann中的bbox从左上点的坐标+bbox长宽 -> 中心点的坐标+bbox的长宽
@@ -227,7 +230,8 @@ class DavisDataset(data.Dataset):
                                  np.float32)  # 将标注ann中的bbox从左上点的坐标+bbox长宽 -> 左上点的坐标+右下点的坐标
 
         original_image_w, original_image_h = image.size
-        cx, cy, tw, th = bbox_xywh
+        cx, cy = center
+        _, _, tw, th = bbox_xywh
         p = round((tw + th) / 2, 2)
         template_square_size = int(np.sqrt((tw + p) * (th + p)))  # a
         detection_square_size = int(template_square_size * 2)  # A = 2a
@@ -323,7 +327,7 @@ class DavisDataset(data.Dataset):
         detection_mask = (np.array(detection[1]) == mask_code).astype(np.uint8)
 
         # get bounding box from anno
-        tbbox, _ = self._get_bbox_center_from_mask(template_mask)
+        tbbox, tc = self._get_bbox_center_from_mask(template_mask)
         sbbox, sc = self._get_bbox_center_from_mask(detection_mask)
 
         # get segmentation and transformed segmentation
@@ -333,8 +337,8 @@ class DavisDataset(data.Dataset):
         contours_template = np.concatenate(contours_template).reshape(-1, 2)
         contours_detect = np.concatenate(contours_detect).reshape(-1, 2)
 
-        template_target, _, _, _ = self.transform_cords(template[0], tbbox, [contours_template[::20].reshape(-1)])
-        _, detection_target, bbox_of_detection, detection_seg = self.transform_cords(detection[0], sbbox, [contours_detect[::20].reshape(-1)])
+        template_target, _, _, _ = self.transform_cords(template[0], tc, tbbox, [contours_template[::20].reshape(-1)])
+        _, detection_target, bbox_of_detection, detection_seg = self.transform_cords(detection[0], sc, sbbox, [contours_detect[::20].reshape(-1)])
 
         template_target = np.array(template_target)
         detection_target = np.array(detection_target)
@@ -344,12 +348,6 @@ class DavisDataset(data.Dataset):
             detection_target = np.expand_dims(detection_target, axis=2)
             detection_target = np.concatenate((detection_target, detection_target, detection_target), axis=-1)
 
-        ################################################################
-        # TODO 
-        # 需要将template, detection, tbbox, sbbox, sc转换到各自的坐标系下，
-        # 并且需要将detection_mask变换到255坐标系下
-        # template和detection 是一个list, 里面的元素分别为: 原始PIL图片， PIL格式的mask, 图片路径
-        ################################################################
         detection_mask_trans = np.zeros((detection_target.shape[0], detection_target.shape[1]), dtype=np.uint8)
         cv2.drawContours(detection_mask_trans, [np.array(detection_seg).reshape(-1, 2)], -1, 255, cv2.FILLED)
         kernel = np.ones((3,3), dtype=np.uint8) * 255
@@ -359,12 +357,14 @@ class DavisDataset(data.Dataset):
         # sc_y = np.mean(detection_mask_trans.nonzero()[0])
         # sc = np.array([sc_x, sc_y])
 
-        sc = self.transform_one_point_cords(detection[0], sbbox, sc)
+        sc = self.transform_one_point_cords(detection[0], sc, sbbox, sc)
         sc = np.array(sc)
 
         # find center in feature map
         f_cx = round(max(0, (sc[0] - 31) / 8))
         f_cy = round(max(0, (sc[1] - 31) / 8))
+
+        print(f_cx, f_cy)
 
         # operation on feature map coordinate
         valid_centers = self.get_valid_center_from_fm(25, f_cx, f_cy)
@@ -429,6 +429,7 @@ if __name__ == "__main__":
     #         img_np = np.array(img)
     #         mask = (img_np == CATEGORY[cat]).astype(np.uint8) # np.array(img_np == CATEGORY[cat], dtype=np.uint8)
     #         if mask.sum() < mask.shape[0] * mask.shape[1] * RATIO_THRESH:
+    #             print(filepath)
     #             continue
     #         # print(mask.sum())
     #         # print(mask.shape)
@@ -441,8 +442,8 @@ if __name__ == "__main__":
     #         contours, _ = cv2.findContours(gray_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     #         contours_ = np.concatenate(contours)  # size: n * 1 * 2
     #         contours_ = contours_.reshape(-1)  # 此处为opencv的x, y坐标，后处理需要交换
-    #         print(contours)
-    #         print(contours_)
+    #         # print(contours)
+    #         # print(contours_)
 
     #         cv2.drawContours(gray_mask, contours, -1, 50, cv2.FILLED)
     #         cv2.imshow("mask", gray_mask)
@@ -491,7 +492,6 @@ if __name__ == "__main__":
         new_coords = get_contours_from_polar(center[0], center[1], coords)
 
         mask = cv2.UMat(np.array([GT_mask, GT_mask, GT_mask], dtype=np.uint8).transpose(1,2,0))
-        print(type(mask) == type(detection))
         for i in range(len(new_coords)):
             cv2.line(detection, (int(center[0]), int(center[1])), (int(new_coords[i][0]), int(new_coords[i][1])), (0,0,255), 1)
 
